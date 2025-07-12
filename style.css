@@ -11,6 +11,20 @@ p {
   font-size: 24px;
 }
 
+#logo {
+  font-family: Optima;
+  font-size: 42px;
+  background: lightgrey;
+  padding-top: 24px;
+  padding-bottom: 24px;
+  padding-left: 24px;
+}
+
+#logo a {
+  text-decoration: none;
+  color: black;
+}
+
 .menu {
   margin-top: 32px;
   margin-bottom: 32px;
@@ -18,6 +32,7 @@ p {
   margin-right: auto;
   width: 75%;
 }
+
 
 #pages {
   display: flex;
@@ -35,25 +50,16 @@ p {
 }
 
 .article {
-  margin-top: 10%;
+  margin-top: 32px;
 }
 
 .article * {
   margin-left: auto;
   margin-right: auto;
   text-align: center;
-  text-align: left;
   width: 65%;
 }
 
 .demo {
   width: 100%;
 }
-
-/*
-.demo {
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-  width: 75%;
-}*/
