@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script language="javascript" type="text/javascript" src="../../libraries/p5.min.js"></script>
+  <script language="javascript" type="text/javascript" src="index.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+
+<body>
+  <div id="menu">
+
+    <div id="menu-container">
+      <p id="instructions">
+        Left-click to attract, right-click to repel!
+      </p>
+
+      <div id="params">
+        <div class="param">
+
+          <label>Number of Particles</label>
+          <div class="slider-container">
+            <input type="range" class="slider" id="particle-count" name="particle-count" min="1" max="2500" step="1" onload="this.value=PARTICLE_COUNT;"></input>
+            <p class="slider-value"></p>
+          </div>  
+       </div>
+
+        <div class="param">
+
+          <label>Number of Types</label>
+          <div class="slider-container">
+            <input type="range" class="slider" id="template-count" name="template-count" min="1" max="12" step="1" value="2"></input>
+            <p class="slider-value"></p>
+          </div>
+        </div>
+        
+        <div class="param">
+          <label>Symmetric Forces</label>
+          <input type="checkbox" id="symmetric-forces"/>
+        </div>
+        
+      </div>
+      
+      <input type="button" id="randomize" value="Randomize Particles"></input>
+      <input type="button" id="generate" value="Generate System"></input>
+    </div>
+    <input type="button" id="toggle-menu" value="Hide Menu"></input>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,100 @@
+body {
+      background-color: rgba(25, 25, 25, 1.0);
+      padding: 0;
+      margin: 0;
+      font-family: helvetica;
+      font-size: 14px;
+    }
+    
+    canvas {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding-left: 0;
+      padding-right: 0;
+      margin-left: auto;
+      margin-right: auto;
+      margin-top: auto;
+      margin-bottom: auto;
+      height: 100%;
+      display: block;
+    }
+    
+    #menu {
+      padding: 10px;
+      position: fixed;
+      justify-content: center;
+      bottom: 0;
+      left: 0;
+    }
+
+    #menu-container {
+      text-align: center;
+      background-color: rgba(100, 100, 100, 0.75);
+      width: 200px;
+      padding-bottom: 20px;
+      color: white; 
+    }
+
+    #menu-container label{
+      text-align: left;
+      margin-left: 10px;
+    }
+    
+
+    #instructions {
+      font-size: 12px;
+      text-align:center;
+    }
+
+    #menu-container input[type="button"] {
+      text-align: center;
+      display: inline;
+      width: 75%;
+      font-size: 14px;
+      background-color: white;
+      border-style: solid;
+      border-width: 0.2em;
+      border-color: lightgrey;
+      padding: 5px;
+      margin-top: 5px;
+    }
+
+    #menu-container input[type="button"]:hover {
+      border-color: black; 
+    }
+
+    #params {
+      display: block;
+      margin-bottom: 30px;
+    }
+    
+    #params * {
+      padding: auto;
+      margin: auto;
+    }
+    
+    .param {
+      width: 100%;
+      text-align: left;
+      padding-top: 20px; 
+    }
+
+    .slider-container {
+      width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .slider {
+      min-width: 80%;
+      text-align: left; 
+    }
+    
+    .slider-value {
+      text-align: right;  
+    }
+
+    #toggle-menu {
+      width: 100%;
+    }
