@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Particle Life — p5.js port</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    font-family: monospace;
+  }
+  #wrap {
+    position: relative;
+    line-height: 0; /* kill the inline-canvas gap */
+  }
+  canvas { display: block; }
+
+  #info {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #888;
+    letter-spacing: 0.02em;
+  }
+
+  #toggleBtn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background: rgba(15, 15, 15, 0.85);
+    color: #bbb;
+    border: 1px solid #333;
+    padding: 6px 10px;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    user-select: none;
+  }
+  #toggleBtn:hover { background: rgba(35, 35, 35, 0.9); color: #eee; }
+
+  #panel {
+    position: absolute;
+    top: 46px;
+    left: 10px;
+    z-index: 9;
+    background: rgba(15, 15, 15, 0.9);
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 14px 16px;
+    width: 190px;
+    color: #ccc;
+    font-family: monospace;
+    font-size: 12px;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  #panel.hidden {
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+  }
+  #panel .row { margin-bottom: 14px; }
+  #panel .row:last-child { margin-bottom: 0; }
+  #panel label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    color: #999;
+  }
+  #panel label .val { color: #ddd; }
+  #panel input[type=range] {
+    width: 100%;
+    accent-color: #7aa8a8;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+
+<div id="wrap">
+  <button id="toggleBtn">≡ controls</button>
+  <div id="panel">
+    <div class="row">
+      <label for="gridSize">grid_size <span class="val" id="gridSizeVal">400</span></label>
+      <input type="range" id="gridSize" min="100" max="800" step="10" value="400">
+    </div>
+    <div class="row">
+      <label for="binSize">bin_size <span class="val" id="binSizeVal">6</span></label>
+      <input type="range" id="binSize" min="1" max="24" step="1" value="6">
+    </div>
+    <div class="row">
+      <label for="popSize">pop_size <span class="val" id="popSizeVal">1000</span></label>
+      <input type="range" id="popSize" min="200" max="10000" step="1" value="1000">
+    </div>
+    <div class="row">
+      <label for="vLim">v_lim <span class="val" id="vLimVal">1.00</span></label>
+      <input type="range" id="vLim" min="0" max="5" step="0.05" value="1">
+    </div>
+  </div>
+</div>
+<div id="info">R — randomize rules &nbsp;&nbsp;|&nbsp;&nbsp; P — print rules to console &nbsp;&nbsp;|&nbsp;&nbsp; H — toggle panel</div>
+
+<script>
+
+// ---- tunable state (mutable now, driven by the sliders) ----
+let GRID_W   = 400;   // simulation space, in grid units
+let BIN_W    = 6;     // spatial-hash bin size, in grid units
+const SPACE_W  = 800; // canvas size, in pixels (fixed)
+let SCALE_W  = SPACE_W / GRID_W;
+
+const DENSITY  = 40;
+let POP_SIZE = Math.floor(Math.sqrt(DENSITY * GRID_W * GRID_W));
+
+let BIN_CAPACITY = 10 * BIN_W * 8;
+const NOISE_RATE = 1;
+let V_LIM = 1;
+
+const VEL_ADD_RNG = [-1, 1];
+const VEL_MUL_RNG = [-1, 1];
+
+// Moore neighborhood offsets, excluding the center cell (matches OFFSETS)
+const OFFSETS = [];
+for (let dy = -1; dy <= 1; dy++) {
+  for (let dx = -1; dx <= 1; dx++) {
+    if (!(dy === 0 && dx === 0)) OFFSETS.push([dy, dx]);
+  }
+}
+
+let TYPES = 5;
+let COLORS = [];
+let particles = [];
+let rules = {};
+let grid = {};
+let gridReady = false;
+
+let bg;      // static background gridline layer, full resolution
+let lowRes;  // low-res particle layer (GRID_W x GRID_W), scaled up on draw
+
+// ---- helpers ----
+function prob(p = 0.5) {
+  return Math.random() < p;
+}
+
+function randRange([lo, hi]) {
+  return lo + Math.random() * (hi - lo);
+}
+
+// toroidal wrap into [0, area), matching np.mod's handling of negatives
+function wrap1(v, area) {
+  return ((v % area) + area) % area;
+}
+
+function ruleKey(i, j) {
+  return i + ',' + j;
+}
+
+function binOf(x, y) {
+  return [Math.floor(x / BIN_W), Math.floor(y / BIN_W)];
+}
+
+// ---- setup / randomize ----
+function buildRandomRules() {
+  TYPES = 1 + Math.floor(Math.random() * 9); // np.random.randint(1, 10)
+
+  COLORS = [];
+  for (let t = 0; t < TYPES; t++) {
+    COLORS.push([
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255)
+    ]);
+  }
+
+  const newRules = {};
+  for (let i = 0; i < TYPES; i++) {
+    for (let j = 0; j < TYPES; j++) {
+      // [placeholder(unused), vel_add_x, vel_add_y, vel_mul_x, vel_mul_y]
+      const r = [i, 0, 0, 1, 1];
+      if (prob()) r[1] = randRange(VEL_ADD_RNG);
+      if (prob()) r[2] = randRange(VEL_ADD_RNG);
+      if (prob()) r[3] = randRange(VEL_MUL_RNG);
+      if (prob()) r[4] = randRange(VEL_MUL_RNG);
+      newRules[ruleKey(i, j)] = r;
+    }
+  }
+  return newRules;
+}
+
+function makeParticle() {
+  return {
+    x: Math.floor(Math.random() * GRID_W),
+    y: Math.floor(Math.random() * GRID_W),
+    vx: 0,
+    vy: 0,
+    t: Math.floor(Math.random() * TYPES)
+  };
+}
+
+function randomize() {
+  rules = buildRandomRules();
+  particles = [];
+  for (let i = 0; i < POP_SIZE; i++) particles.push(makeParticle());
+  grid = {};
+  gridReady = false;
+  console.log('types:', TYPES, '  population size:', POP_SIZE);
+}
+
+// ---- spatial hash ----
+function getNeighborhood(x, y) {
+  const [bx, by] = binOf(x, y);
+  const nbrs = [];
+  for (const [dy, dx] of OFFSETS) {
+    // NOTE: preserved from the original — bin coords are wrapped modulo
+    // GRID_W, not the number of bins. At the true edges of the bin grid
+    // this misses the wrap-around neighbor bin, same as the python version.
+    const nx = wrap1(bx + dx, GRID_W);
+    const ny = wrap1(by + dy, GRID_W);
+    const key = nx + ',' + ny;
+    if (grid[key]) nbrs.push(...grid[key]);
+  }
+  return nbrs;
+}
+
+// ---- simulation step ----
+function updateParticles() {
+  if (!gridReady) {
+    grid = {};
+    for (let i = 0; i < particles.length; i++) {
+      const [bx, by] = binOf(particles[i].x, particles[i].y);
+      const key = bx + ',' + by;
+      (grid[key] = grid[key] || []).push(i);
+    }
+    gridReady = true;
+  }
+
+  const newGrid = {};
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const N = getNeighborhood(p.x, p.y);
+
+    let q = (N.length - BIN_CAPACITY * 0.5) / BIN_CAPACITY;
+    q = Math.max(0, q);
+
+    for (const j of N) {
+      if (i === j) continue;
+      const n = particles[j];
+      const rule = rules[ruleKey(p.t, n.t)];
+      if (!rule) continue;
+
+      let ox = n.x - p.x;
+      let oy = n.y - p.y;
+      const mag = Math.hypot(ox, oy);
+      if (mag === 0) continue; // guards the case pygame's Vector2.normalize() would throw on
+      ox /= mag;
+      oy /= mag;
+
+      // NOTE: preserved from the original — `off` is normalized before
+      // `d` is computed from it, so d = |off| = 1 always.
+      const d = 1;
+
+      p.vx += rule[1] * ox * ((d - rule[3]) - (d - rule[4]));
+      p.vy += rule[2] * oy * ((d - rule[3]) - (d - rule[4]));
+    }
+
+    p.vx = constrain(p.vx, -V_LIM, V_LIM);
+    p.vy = constrain(p.vy, -V_LIM, V_LIM);
+
+    p.vx += q * randRange([-NOISE_RATE, NOISE_RATE]);
+    p.vy += q * randRange([-NOISE_RATE, NOISE_RATE]);
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    p.x = wrap1(p.x, GRID_W);
+    p.y = wrap1(p.y, GRID_W);
+
+    const [bx, by] = binOf(p.x, p.y);
+    const key = bx + ',' + by;
+    (newGrid[key] = newGrid[key] || []).push(i);
+  }
+
+  grid = newGrid;
+}
+
+// ---- rebuilds triggered by the sliders ----
+function rebuildBackground() {
+  bg.clear();
+  bg.background(0);
+  bg.stroke(25);
+  for (let i = 0; i < SPACE_W; i += BIN_W * SCALE_W) {
+    bg.line(0, i, SPACE_W, i);
+    bg.line(i, 0, i, SPACE_W);
+  }
+}
+
+// grid_size changed: space, buffer, and population all need to be resized.
+// existing rule set / types / colors are kept, so the "personality" carries over.
+function rebuildSpace() {
+  SCALE_W = SPACE_W / GRID_W;
+  POP_SIZE = Math.floor(Math.sqrt(DENSITY * GRID_W * GRID_W));
+
+  lowRes.resizeCanvas(GRID_W, GRID_W);
+  lowRes.pixelDensity(1);
+  lowRes.noSmooth();
+
+  rebuildBackground();
+
+  particles = [];
+  for (let i = 0; i < POP_SIZE; i++) particles.push(makeParticle());
+
+  grid = {};
+  gridReady = false;
+}
+
+// bin_size changed: just redraw the overlay grid and invalidate the spatial hash
+function rebuildBins() {
+  BIN_CAPACITY = 10 * BIN_W * 8;
+  rebuildBackground();
+  grid = {};
+  gridReady = false;
+}
+
+// ---- UI wiring ----
+function wireControls() {
+  const panel = document.getElementById('panel');
+  const toggleBtn = document.getElementById('toggleBtn');
+  toggleBtn.addEventListener('click', () => panel.classList.toggle('hidden'));
+
+  const gridSlider = document.getElementById('gridSize');
+  const gridVal = document.getElementById('gridSizeVal');
+  gridSlider.addEventListener('input', () => {
+    GRID_W = parseInt(gridSlider.value);
+    gridVal.textContent = GRID_W;
+    rebuildSpace();
+  });
+
+  const binSlider = document.getElementById('binSize');
+  const binVal = document.getElementById('binSizeVal');
+  binSlider.addEventListener('input', () => {
+    BIN_W = parseInt(binSlider.value);
+    binVal.textContent = BIN_W;
+    rebuildBins();
+  });
+  const popSlider = document.getElementById('popSize');
+  const popVal = document.getElementById('popSizeVal');
+  popSlider.addEventListener('input', () => {
+    POP_SIZE = parseInt(popSlider.value);
+    popVal.textContent = POP_SIZE;
+    rebuildBins();
+  });
+  const vlimSlider = document.getElementById('vLim');
+  const vlimVal = document.getElementById('vLimVal');
+  vlimSlider.addEventListener('input', () => {
+    V_LIM = parseFloat(vlimSlider.value);
+    vlimVal.textContent = V_LIM.toFixed(2);
+  });
+}
+
+// ---- p5 lifecycle ----
+function setup() {
+  const cnv = createCanvas(SPACE_W, SPACE_W);
+  cnv.parent(document.getElementById('wrap'));
+  pixelDensity(1);
+  noSmooth();
+
+  bg = createGraphics(SPACE_W, SPACE_W);
+  bg.pixelDensity(1);
+  rebuildBackground();
+
+  lowRes = createGraphics(GRID_W, GRID_W);
+  lowRes.pixelDensity(1);
+  lowRes.noSmooth();
+
+  randomize();
+  wireControls();
+}
+
+function draw() {
+  updateParticles();
+
+  background(0);
+  image(bg, 0, 0);
+
+  lowRes.clear();
+  lowRes.loadPixels();
+  for (const p of particles) {
+    const x = Math.floor(p.x);
+    const y = Math.floor(p.y);
+    const idx = 4 * (y * GRID_W + x);
+    const c = COLORS[p.t];
+    lowRes.pixels[idx]     = c[0];
+    lowRes.pixels[idx + 1] = c[1];
+    lowRes.pixels[idx + 2] = c[2];
+    lowRes.pixels[idx + 3] = 255;
+  }
+  lowRes.updatePixels();
+
+  image(lowRes, 0, 0, SPACE_W, SPACE_W);
+}
+
+function keyPressed() {
+  if (key === 'r' || key === 'R') {
+    randomize();
+  }
+  if (key === 'p' || key === 'P') {
+    console.log('rules:', rules);
+  }
+  if (key === 'h' || key === 'H') {
+    document.getElementById('panel').classList.toggle('hidden');
+  }
+}
+
+</script>
+</body>
+</html>
