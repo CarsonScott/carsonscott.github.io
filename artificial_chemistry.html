@@ -101,6 +101,7 @@
       <label for="vLim">v_lim <span class="val" id="vLimVal">1.00</span></label>
       <input type="range" id="vLim" min="0" max="5" step="0.05" value="1">
     </div>
+    <button id="genButton">generate</button>
   </div>
 </div>
 <div id="info">R — randomize rules &nbsp;&nbsp;|&nbsp;&nbsp; P — print rules to console &nbsp;&nbsp;|&nbsp;&nbsp; H — toggle panel</div>
@@ -360,6 +361,8 @@ function wireControls() {
     V_LIM = parseFloat(vlimSlider.value);
     vlimVal.textContent = V_LIM.toFixed(2);
   });
+  const genBtn = document.getElementById("genButton");
+  genBtn.addEventListener('click', ()=> randomize());
 }
 
 // ---- p5 lifecycle ----
