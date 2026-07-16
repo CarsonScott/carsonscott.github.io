@@ -158,6 +158,14 @@
       <label for="vLim">v_lim <span class="val" id="vLimVal">1.00</span></label>
       <input type="range" id="vLim" min="0" max="5" step="0.05" value="1">
     </div>
+    <div class="row">
+      <label for="binCap">bin_cap <span class="val" id="binCapVal">5</span></label>
+      <input type="range" id="binCap" min="1" max="50" step="1" value="5">
+    </div>
+    <div class="row">
+      <label for="noiseRate">noise_rate <span class="val" id="noiseRateVal">1</span></label>
+      <input type="range" id="noiseRate" min="0" max="20" step="0.01" value="1">
+    </div>
     <button id="genButton">generate</button>
   </div>
 
@@ -525,7 +533,19 @@ function wireControls() {
     V_LIM = parseFloat(vlimSlider.value);
     vlimVal.textContent = V_LIM.toFixed(2);
   });
-
+  const binCapSlider = document.getElementById('binCap');
+  const binCapVal = document.getElementById('binCapVal');
+  binCapSlider.addEventListener('input', () => {
+    let x = parseFloat(binCapSlider.value);
+    BIN_CAPACITY = x * BIN_W * 9 
+    binCapVal.textContent = x;
+  });
+  const noiseRateSlider = document.getElementById('noiseRate');
+  const noiseRateVal = document.getElementById('noiseRateVal');
+  noiseRateSlider.addEventListener('input', () => {
+    NOISE_RATE = parseFloat(noiseRateSlider.value) * BIN_W * 9;
+    noiseRateVal.textContent = NOISE_RATE.toFixed(2);
+  });
   const genBtn = document.getElementById('genButton');
   genBtn.addEventListener('click', () => randomize());
 }
