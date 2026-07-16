@@ -204,7 +204,7 @@ const VEL_MUL_RNG = [-1, 1];
 const OFFSETS = [];
 for (let dy = -1; dy <= 1; dy++) {
   for (let dx = -1; dx <= 1; dx++) {
-    if (!(dy === 0 && dx === 0)) OFFSETS.push([dy, dx]);
+    OFFSETS.push([dy, dx]);
   }
 }
 
