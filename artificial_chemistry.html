@@ -8,10 +8,10 @@
     margin: 0;
     height: 100%;
     background: #000;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-direction: column;
     font-family: monospace;
   }
   #wrap {
@@ -20,17 +20,9 @@
   }
   canvas { display: block; }
 
-  #info {
-    margin-top: 10px;
-    font-size: 12px;
-    color: #888;
-    letter-spacing: 0.02em;
-  }
-
-  #toggleBtn {
+  #toggleBtn, #rulesToggleBtn {
     position: absolute;
     top: 10px;
-    left: 10px;
     z-index: 10;
     background: rgba(15, 15, 15, 0.85);
     color: #bbb;
@@ -42,28 +34,32 @@
     border-radius: 3px;
     user-select: none;
   }
-  #toggleBtn:hover { background: rgba(35, 35, 35, 0.9); color: #eee; }
+  #toggleBtn { left: 10px; }
+  #rulesToggleBtn { right: 10px; }
+  #toggleBtn:hover, #rulesToggleBtn:hover { background: rgba(35, 35, 35, 0.9); color: #eee; }
 
-  #panel {
+  #panel, #rulesSidebar {
     position: absolute;
     top: 46px;
-    left: 10px;
     z-index: 9;
     background: rgba(15, 15, 15, 0.9);
     border: 1px solid #333;
     border-radius: 4px;
     padding: 14px 16px;
-    width: 190px;
     color: #ccc;
     font-family: monospace;
     font-size: 12px;
     transition: opacity 0.15s ease, transform 0.15s ease;
   }
-  #panel.hidden {
+  #panel { left: 10px; width: 190px; }
+  #rulesSidebar { right: 10px; width: 260px; font-size: 11px; }
+
+  #panel.hidden, #rulesSidebar.hidden {
     opacity: 0;
     transform: translateY(-6px);
     pointer-events: none;
   }
+
   #panel .row { margin-bottom: 14px; }
   #panel .row:last-child { margin-bottom: 0; }
   #panel label {
@@ -76,6 +72,67 @@
   #panel input[type=range] {
     width: 100%;
     accent-color: #7aa8a8;
+  }
+  #panel button {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  #rulesSidebar h3 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #999;
+    font-weight: normal;
+    letter-spacing: 0.03em;
+  }
+  #rulesSidebar textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0a0a0a;
+    color: #bbb;
+    border: 1px solid #2a2a2a;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 10px;
+    padding: 6px;
+    resize: vertical;
+  }
+  #rulesOutput { height: 130px; margin-bottom: 8px; }
+  #rulesInput { height: 90px; margin-top: 4px; margin-bottom: 6px; }
+  #rulesSidebar .btnRow { display: flex; gap: 8px; }
+  #rulesDivider { border-top: 1px solid #2a2a2a; margin: 12px 0; }
+  #rulesStatus {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10px;
+    color: #7aa8a8;
+    min-height: 12px;
+    vertical-align: middle;
+  }
+
+  button {
+    background: rgba(40, 40, 40, 0.9);
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 5px 10px;
+    font-family: monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  button:hover { background: rgba(60, 60, 60, 0.9); color: #eee; }
+
+  #info {
+    position: absolute;
+    bottom: 8px;
+    left: 10px;
+    z-index: 8;
+    font-size: 11px;
+    color: #888;
+    background: rgba(15, 15, 15, 0.6);
+    padding: 4px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.02em;
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
@@ -103,23 +160,42 @@
     </div>
     <button id="genButton">generate</button>
   </div>
+
+  <button id="rulesToggleBtn">{ } rules</button>
+  <div id="rulesSidebar" class="hidden">
+    <h3>current system</h3>
+    <textarea id="rulesOutput" readonly spellcheck="false"></textarea>
+    <button id="copyRulesBtn">copy</button>
+    <span id="rulesStatus"></span>
+
+    <div id="rulesDivider"></div>
+
+    <h3>load a system</h3>
+    <textarea id="rulesInput" placeholder="paste a rules JSON block here" spellcheck="false"></textarea>
+    <div class="btnRow">
+      <button id="pasteRulesBtn">paste</button>
+      <button id="applyRulesBtn">apply</button>
+    </div>
+  </div>
+
+  <div id="info">R — randomize rules &nbsp;|&nbsp; P — print rules &nbsp;|&nbsp; H — controls &nbsp;|&nbsp; J — rules</div>
 </div>
-<div id="info">R — randomize rules &nbsp;&nbsp;|&nbsp;&nbsp; P — print rules to console &nbsp;&nbsp;|&nbsp;&nbsp; H — toggle panel</div>
 
 <script>
 
-// ---- tunable state (mutable now, driven by the sliders) ----
+// ---- tunable state (mutable, driven by the sliders / window size) ----
 let GRID_W   = 400;   // simulation space, in grid units
 let BIN_W    = 6;     // spatial-hash bin size, in grid units
-const SPACE_W  = 800; // canvas size, in pixels (fixed)
+let SPACE_W  = calcSpaceW(); // canvas size, in pixels — fills the viewport
 let SCALE_W  = SPACE_W / GRID_W;
 
-const DENSITY  = 40;
-let POP_SIZE = Math.floor(Math.sqrt(DENSITY * GRID_W * GRID_W));
+let POP_SIZE = 1000; // directly slider-controlled, not density-derived
 
 let BIN_CAPACITY = 10 * BIN_W * 8;
 const NOISE_RATE = 1;
 let V_LIM = 1;
+
+const GRID_LINE_MAX = 900; // overlay grid lines stop rendering past this grid_size
 
 const VEL_ADD_RNG = [-1, 1];
 const VEL_MUL_RNG = [-1, 1];
@@ -143,6 +219,10 @@ let bg;      // static background gridline layer, full resolution
 let lowRes;  // low-res particle layer (GRID_W x GRID_W), scaled up on draw
 
 // ---- helpers ----
+function calcSpaceW() {
+  return Math.floor(Math.min(window.innerWidth, window.innerHeight));
+}
+
 function prob(p = 0.5) {
   return Math.random() < p;
 }
@@ -208,6 +288,7 @@ function randomize() {
   for (let i = 0; i < POP_SIZE; i++) particles.push(makeParticle());
   grid = {};
   gridReady = false;
+  refreshRulesOutput();
   console.log('types:', TYPES, '  population size:', POP_SIZE);
 }
 
@@ -289,22 +370,24 @@ function updateParticles() {
   grid = newGrid;
 }
 
-// ---- rebuilds triggered by the sliders ----
+// ---- rebuilds triggered by the sliders / window resize ----
 function rebuildBackground() {
   bg.clear();
   bg.background(0);
-  bg.stroke(25);
-  for (let i = 0; i < SPACE_W; i += BIN_W * SCALE_W) {
-    bg.line(0, i, SPACE_W, i);
-    bg.line(i, 0, i, SPACE_W);
+  if (GRID_W <= GRID_LINE_MAX) {
+    bg.stroke(25);
+    for (let i = 0; i < SPACE_W; i += BIN_W * SCALE_W) {
+      bg.line(0, i, SPACE_W, i);
+      bg.line(i, 0, i, SPACE_W);
+    }
   }
 }
 
-// grid_size changed: space, buffer, and population all need to be resized.
-// existing rule set / types / colors are kept, so the "personality" carries over.
+// grid_size changed: space + buffer resize. population is left alone (it's
+// independently slider-controlled) — existing particles are just wrapped
+// into the new bounds so the pattern carries over instead of re-rolling.
 function rebuildSpace() {
   SCALE_W = SPACE_W / GRID_W;
-  POP_SIZE = Math.floor(Math.sqrt(DENSITY * GRID_W * GRID_W));
 
   lowRes.resizeCanvas(GRID_W, GRID_W);
   lowRes.pixelDensity(1);
@@ -312,19 +395,98 @@ function rebuildSpace() {
 
   rebuildBackground();
 
-  particles = [];
-  for (let i = 0; i < POP_SIZE; i++) particles.push(makeParticle());
+  for (const p of particles) {
+    p.x = wrap1(p.x, GRID_W);
+    p.y = wrap1(p.y, GRID_W);
+  }
 
   grid = {};
   gridReady = false;
 }
 
-// bin_size changed: just redraw the overlay grid and invalidate the spatial hash
+// bin_size changed: redraw the overlay grid and invalidate the spatial hash
 function rebuildBins() {
   BIN_CAPACITY = 10 * BIN_W * 8;
   rebuildBackground();
   grid = {};
   gridReady = false;
+}
+
+// pop_size changed: regenerate the particle array at the new count,
+// keeping the current rule set / types
+function rebuildPopulation() {
+  particles = [];
+  for (let i = 0; i < POP_SIZE; i++) particles.push(makeParticle());
+  grid = {};
+  gridReady = false;
+}
+
+// ---- rule import / export ----
+function serializeRuleSystem() {
+  const ruleMap = {};
+  for (const key in rules) {
+    const r = rules[key];
+    ruleMap[key] = [r[1], r[2], r[3], r[4]];
+  }
+  return JSON.stringify({ types: TYPES, rules: ruleMap }, null, 2);
+}
+
+function refreshRulesOutput() {
+  const el = document.getElementById('rulesOutput');
+  if (el) el.value = serializeRuleSystem();
+}
+
+function applyRuleSystemFromText(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    return { ok: false, error: 'invalid JSON' };
+  }
+  if (!parsed || typeof parsed.types !== 'number' || !parsed.rules) {
+    return { ok: false, error: 'missing "types" or "rules" field' };
+  }
+  const newTypes = Math.floor(parsed.types);
+  if (newTypes < 1) return { ok: false, error: '"types" must be >= 1' };
+
+  const newRules = {};
+  for (const key in parsed.rules) {
+    const arr = parsed.rules[key];
+    if (!Array.isArray(arr) || arr.length !== 4) {
+      return { ok: false, error: `rule "${key}" must be a 4-number array` };
+    }
+    const i = Number(key.split(',')[0]);
+    newRules[key] = [i, arr[0], arr[1], arr[2], arr[3]];
+  }
+  // fill any pairs missing from the paste with identity defaults
+  for (let i = 0; i < newTypes; i++) {
+    for (let j = 0; j < newTypes; j++) {
+      const k = ruleKey(i, j);
+      if (!newRules[k]) newRules[k] = [i, 0, 0, 1, 1];
+    }
+  }
+
+  TYPES = newTypes;
+  COLORS = [];
+  for (let t = 0; t < TYPES; t++) {
+    COLORS.push([
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255)
+    ]);
+  }
+  rules = newRules;
+  rebuildPopulation();
+
+  return { ok: true };
+}
+
+function flashStatus(msg) {
+  const el = document.getElementById('rulesStatus');
+  if (!el) return;
+  el.textContent = msg;
+  clearTimeout(flashStatus._t);
+  flashStatus._t = setTimeout(() => { el.textContent = ''; }, 2500);
 }
 
 // ---- UI wiring ----
@@ -348,21 +510,83 @@ function wireControls() {
     binVal.textContent = BIN_W;
     rebuildBins();
   });
+
   const popSlider = document.getElementById('popSize');
   const popVal = document.getElementById('popSizeVal');
   popSlider.addEventListener('input', () => {
     POP_SIZE = parseInt(popSlider.value);
     popVal.textContent = POP_SIZE;
-    rebuildBins();
+    rebuildPopulation();
   });
+
   const vlimSlider = document.getElementById('vLim');
   const vlimVal = document.getElementById('vLimVal');
   vlimSlider.addEventListener('input', () => {
     V_LIM = parseFloat(vlimSlider.value);
     vlimVal.textContent = V_LIM.toFixed(2);
   });
-  const genBtn = document.getElementById("genButton");
-  genBtn.addEventListener('click', ()=> randomize());
+
+  const genBtn = document.getElementById('genButton');
+  genBtn.addEventListener('click', () => randomize());
+}
+
+function wireRulesSidebar() {
+  const sidebar = document.getElementById('rulesSidebar');
+  const toggleBtn = document.getElementById('rulesToggleBtn');
+  toggleBtn.addEventListener('click', () => sidebar.classList.toggle('hidden'));
+
+  document.getElementById('copyRulesBtn').addEventListener('click', async () => {
+    const output = document.getElementById('rulesOutput');
+    // select regardless of outcome below, so a manual Ctrl/Cmd+C always works
+    output.select();
+    output.setSelectionRange(0, output.value.length);
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(output.value);
+      copied = true;
+    } catch (e) {
+      // Clipboard API is commonly blocked by a sandboxed preview iframe's
+      // permissions policy — fall back to the legacy copy command.
+      try {
+        copied = document.execCommand('copy');
+      } catch (e2) {
+        copied = false;
+      }
+    }
+    flashStatus(copied ? 'copied' : 'text selected — press ⌘/Ctrl+C');
+  });
+
+  const rulesInput = document.getElementById('rulesInput');
+  // clear whatever's in the box the moment you click/tab back into it, so a
+  // fresh Ctrl/Cmd+V doesn't need a manual select-all first
+  rulesInput.addEventListener('focus', () => {
+    rulesInput.value = '';
+  });
+
+  document.getElementById('pasteRulesBtn').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      rulesInput.value = text;
+      flashStatus('pasted');
+    } catch (e) {
+      // clipboard-read is blocked in most sandboxed preview iframes —
+      // click into the box and use Ctrl/Cmd+V instead
+      flashStatus('blocked — click box, use ⌘/Ctrl+V');
+    }
+  });
+
+  document.getElementById('applyRulesBtn').addEventListener('click', () => {
+    const text = document.getElementById('rulesInput').value.trim();
+    if (!text) { flashStatus('paste a rule set first'); return; }
+    const res = applyRuleSystemFromText(text);
+    if (res.ok) {
+      refreshRulesOutput();
+      flashStatus('loaded');
+    } else {
+      flashStatus('error: ' + res.error);
+    }
+  });
 }
 
 // ---- p5 lifecycle ----
@@ -382,6 +606,7 @@ function setup() {
 
   randomize();
   wireControls();
+  wireRulesSidebar();
 }
 
 function draw() {
@@ -407,6 +632,16 @@ function draw() {
   image(lowRes, 0, 0, SPACE_W, SPACE_W);
 }
 
+function windowResized() {
+  SPACE_W = calcSpaceW();
+  resizeCanvas(SPACE_W, SPACE_W);
+  SCALE_W = SPACE_W / GRID_W;
+
+  bg.resizeCanvas(SPACE_W, SPACE_W);
+  bg.pixelDensity(1);
+  rebuildBackground();
+}
+
 function keyPressed() {
   if (key === 'r' || key === 'R') {
     randomize();
@@ -416,6 +651,9 @@ function keyPressed() {
   }
   if (key === 'h' || key === 'H') {
     document.getElementById('panel').classList.toggle('hidden');
+  }
+  if (key === 'j' || key === 'J') {
+    document.getElementById('rulesSidebar').classList.toggle('hidden');
   }
 }
 
