@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Port-match field</title>
+<style>
+  :root {
+    --bg: #0b0e12;
+    --panel: #12161c;
+    --border: #232a33;
+    --text: #dfe6ec;
+    --text-dim: #7c8794;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans);
+  }
+  #app {
+    display: flex; flex-direction: column; gap: 0;
+    max-width: 1180px; margin: 0 auto;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 15px; font-weight: 500; margin: 0; letter-spacing: 0.2px; }
+  header .stats { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  header .stats b { color: var(--text); font-weight: 500; }
+  p.caption {
+    margin: 10px 16px; font-size: 12.5px; line-height: 1.5; color: var(--text-dim);
+    max-width: 62ch;
+  }
+  main {
+    display: flex; flex-wrap: wrap; gap: 0;
+  }
+  #canvas-wrap { flex: 1 1 620px; min-width: 300px; padding: 0 16px 16px; }
+  canvas {
+    display: block; width: 100%; height: auto;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  }
+  #controls {
+    flex: 0 0 260px; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field .row { display: flex; justify-content: space-between; font-size: 12.5px; }
+  .field .row span.val { font-family: var(--mono); color: var(--text-dim); }
+  input[type="range"] {
+    -webkit-appearance: none; width: 100%; height: 3px; background: var(--border);
+    border-radius: 2px; outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+    background: #5ec8d8; cursor: pointer; border: none;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%; background: #5ec8d8;
+    cursor: pointer; border: none;
+  }
+  .buttons { display: flex; gap: 8px; }
+  button {
+    flex: 1; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 7px 10px; font-size: 12.5px; cursor: pointer;
+    font-family: var(--sans);
+  }
+  button:hover { background: #181e26; border-color: #2f3947; }
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 2px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-dim); }
+  .legend .item { display: flex; align-items: center; gap: 5px; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .legend h2 { font-size: 12px; font-weight: 500; color: var(--text); margin: 0 0 2px; }
+  .note { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Port-match field</h1>
+    <div class="stats">particles <b id="statParticles">0</b> &nbsp; bonds <b id="statBonds">0</b></div>
+  </header>
+  <p class="caption">
+    Each particle carries a ring of typed ports. Two particles attract when their
+    port sequences share an order-preserving run of matching types, and repel when
+    they don't. Close encounters can lock into a bond or blast apart; heat, crowding
+    and bond strain can shake an existing bond back loose.
+  </p>
+  <main>
+    <div id="canvas-wrap"><canvas id="canvas" width="900" height="600"></canvas></div>
+    <div id="controls">
+      <div class="field">
+        <div class="row"><label for="heat">Heat</label><span class="val" id="heatVal"></span></div>
+        <input type="range" id="heat" min="0" max="2" step="0.01" value="0.6">
+      </div>
+      <div class="field">
+        <div class="row"><label for="selectivity">Selectivity</label><span class="val" id="selectivityVal"></span></div>
+        <input type="range" id="selectivity" min="0" max="5" step="0.1" value="1">
+      </div>
+      <div class="field">
+        <div class="row"><label for="speed">Speed</label><span class="val" id="speedVal"></span></div>
+        <input type="range" id="speed" min="0.1" max="2.5" step="0.1" value="1">
+      </div>
+      <div class="field">
+        <div class="row"><label for="count">Particles</label><span class="val" id="countVal"></span></div>
+        <input type="range" id="count" min="20" max="900" step="10" value="140">
+      </div>
+      <div class="buttons">
+        <button id="toggleBtn">Pause</button>
+        <button id="reseedBtn">Reseed</button>
+      </div>
+      <hr class="div">
+      <div class="legend">
+        <h2 style="width:100%">Port identities</h2>
+        <span class="item"><span class="dot" style="background:#5ec8d8"></span>A</span>
+        <span class="item"><span class="dot" style="background:#e0a95e"></span>B</span>
+        <span class="item"><span class="dot" style="background:#c17ed6"></span>C</span>
+        <span class="item"><span class="dot" style="background:#7fd88f"></span>D</span>
+        <span class="item"><span class="dot" style="background:#e86a92"></span>E</span>
+      </div>
+      <p class="note">Filled dot = port is bonded. Hollow dot = port is free. A line links the specific ports a bond formed between.</p>
+    </div>
+  </main>
+</div>
+<script>
+(function () {
+  "use strict";
+
+  var IDENTITIES = ["A", "B", "C", "D", "E"];
+  var IDENTITY_COLOR = { A: "#5ec8d8", B: "#e0a95e", C: "#c17ed6", D: "#7fd88f", E: "#e86a92" };
+
+  var cfg = {
+    particleCount: 140,
+    worldW: Math.round(1.5*900),
+    worldH: Math.round(1.5*900),
+    interactionRadius: 70,
+    connectionDistance: 35,
+    bondRestLength: 25,
+    springK: 0.5,
+    repulsionCoreRadius: 10,
+    repulsionStrength: 40,
+    affinityStrength: 12,
+    mismatchBias: 1,
+    temperature: 0.6,
+    damping: 0.95,
+    baseBreakRate: 0.0001,
+    stressBreakCoeff: 0.0,
+    pressureBreakCoeff: 0.0,
+    connectProbBase: 0.35,
+    minPorts: 1,
+    maxPorts: 4,
+    speed: 1
+  };
+
+  var canvas = document.getElementById("canvas");
+  canvas.setAttribute('width', cfg.worldW)
+  canvas.setAttribute('height', cfg.worldH)
+  var ctx = canvas.getContext("2d");
+
+  var nextId = 0;
+  function Particle(x, y) {
+    this.id = nextId++;
+    this.x = x; this.y = y;
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = (Math.random() - 0.5) * 0.4;
+    this.fx = 0; this.fy = 0;
+    var n = cfg.minPorts + Math.floor(Math.random() * (cfg.maxPorts - cfg.minPorts + 1));
+    this.ports = [];
+    for (var i = 0; i < n; i++) {
+      this.ports.push({ id: IDENTITIES[Math.floor(Math.random() * IDENTITIES.length)], link: null });
+    }
+    this.radius = 1 + n * 0.9;
+    this.localDensity = 0;
+    this.localKE = 0;
+  }
+
+  var particles = [];
+  var connections = []; // {a, b, pairs: [[ia, ib], ...]}
+  var bondedKeys = new Set();
+
+  function pairKey(a, b) { return a.id < b.id ? a.id + "_" + b.id : b.id + "_" + a.id; }
+
+  function reseed() {
+    particles = [];
+    connections = [];
+    bondedKeys = new Set();
+    nextId = 0;
+    for (var i = 0; i < cfg.particleCount; i++) {
+      particles.push(new Particle(Math.random() * cfg.worldW, Math.random() * cfg.worldH));
+    }
+  }
+
+  // ---- cyclic order-preserving identity matching ----
+  function lcsMatch(seqA, seqB) {
+    var n = seqA.length, m = seqB.length;
+    var dp = [];
+    for (var i = 0; i <= n; i++) { dp.push(new Array(m + 1).fill(0)); }
+    for (i = 1; i <= n; i++) {
+      for (var j = 1; j <= m; j++) {
+        var a = seqA[i - 1], b = seqB[j - 1];
+        if (a.link === null && b.link === null && a.id === b.id) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
+    }
+    var pairs = [];
+    i = n; var jj = m;
+    while (i > 0 && jj > 0) {
+      var pa = seqA[i - 1], pb = seqB[jj - 1];
+      if (pa.link === null && pb.link === null && pa.id === pb.id && dp[i][jj] === dp[i - 1][jj - 1] + 1) {
+        pairs.push([i - 1, jj - 1]);
+        i--; jj--;
+      } else if (dp[i - 1][jj] >= dp[i][jj - 1]) {
+        i--;
+      } else {
+        jj--;
+      }
+    }
+    pairs.reverse();
+    return { score: dp[n][m], pairs: pairs };
+  }
+
+  function bestCyclicMatch(portsA, portsB) {
+    var n = portsA.length, m = portsB.length;
+    var best = { score: 0, pairs: [] };
+    for (var ra = 0; ra < n; ra++) {
+      var seqA = [];
+      for (var k = 0; k < n; k++) seqA.push(portsA[(ra + k) % n]);
+      for (var rb = 0; rb < m; rb++) {
+        var seqB = [];
+        for (var k2 = 0; k2 < m; k2++) seqB.push(portsB[(rb + k2) % m]);
+        var result = lcsMatch(seqA, seqB);
+        if (result.score > best.score) {
+          var pairs = result.pairs.map(function (p) { return [(ra + p[0]) % n, (rb + p[1]) % m]; });
+          best = { score: result.score, pairs: pairs };
+        }
+      }
+    }
+    return best;
+  }
+
+  // ---- spatial hash ----
+  function buildSpatialHash() {
+    var cols = Math.max(3, Math.floor(cfg.worldW / cfg.interactionRadius));
+    var rows = Math.max(3, Math.floor(cfg.worldH / cfg.interactionRadius));
+    var cellW = cfg.worldW / cols, cellH = cfg.worldH / rows;
+    var grid = new Map();
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var cx = Math.floor(p.x / cellW) % cols;
+      var cy = Math.floor(p.y / cellH) % rows;
+      var key = cx + "," + cy;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(p);
+      p._cx = cx; p._cy = cy;
+    }
+    return { grid: grid, cols: cols, rows: rows };
+  }
+
+  function getNeighbors(p, hash) {
+    var seen = new Set();
+    var result = [];
+    for (var dx = -1; dx <= 1; dx++) {
+      for (var dy = -1; dy <= 1; dy++) {
+        var nx = ((p._cx + dx) % hash.cols + hash.cols) % hash.cols;
+        var ny = ((p._cy + dy) % hash.rows + hash.rows) % hash.rows;
+        var bucket = hash.grid.get(nx + "," + ny);
+        if (!bucket) continue;
+        for (var i = 0; i < bucket.length; i++) {
+          var q = bucket[i];
+          if (q !== p && !seen.has(q.id)) { seen.add(q.id); result.push(q); }
+        }
+      }
+    }
+    return result;
+  }
+
+  function torDelta(ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay;
+    if (dx > cfg.worldW / 2) dx -= cfg.worldW; else if (dx < -cfg.worldW / 2) dx += cfg.worldW;
+    if (dy > cfg.worldH / 2) dy -= cfg.worldH; else if (dy < -cfg.worldH / 2) dy += cfg.worldH;
+    return [dx, dy];
+  }
+
+  function gaussianRandom() {
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function formBond(a, b, pairs) {
+    for (var i = 0; i < pairs.length; i++) {
+      var ia = pairs[i][0], ib = pairs[i][1];
+      a.ports[ia].link = { particle: b, port: ib };
+      b.ports[ib].link = { particle: a, port: ia };
+    }
+    connections.push({ a: a, b: b, pairs: pairs });
+    bondedKeys.add(pairKey(a, b));
+  }
+
+  function breakBond(conn) {
+    for (var i = 0; i < conn.pairs.length; i++) {
+      conn.a.ports[conn.pairs[i][0]].link = null;
+      conn.b.ports[conn.pairs[i][1]].link = null;
+    }
+    bondedKeys.delete(pairKey(conn.a, conn.b));
+  }
+
+  function attemptBondOrBlast(p, q, dx, dy, dist, match) {
+    var pBond = cfg.connectProbBase * (match.score / cfg.maxPorts);
+    var heatFactor = 0.3 + cfg.temperature;
+    var pBlast = 0.02 * heatFactor / (1 + match.score);
+    var r = Math.random();
+    if (r < pBond) {
+      formBond(p, q, match.pairs);
+    } else if (r < pBond + pBlast) {
+      var nx = dx / (dist || 1), ny = dy / (dist || 1);
+      var impulse = 1.2 * heatFactor;
+      p.vx -= nx * impulse; p.vy -= ny * impulse;
+      q.vx += nx * impulse; q.vy += ny * impulse;
+    }
+  }
+
+  function step(dt) {
+    var hash = buildSpatialHash();
+    for (var i = 0; i < particles.length; i++) { particles[i].fx = 0; particles[i].fy = 0; }
+
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var neighbors = getNeighbors(p, hash);
+      var localDensity = 0, keSum = 0, keCount = 0;
+      for (var j = 0; j < neighbors.length; j++) {
+        var q = neighbors[j];
+        var d = torDelta(p.x, p.y, q.x, q.y);
+        var dx = d[0], dy = d[1];
+        var dist = Math.hypot(dx, dy);
+        if (dist >= cfg.interactionRadius) continue;
+        localDensity++;
+        keSum += 0.5 * (q.vx * q.vx + q.vy * q.vy);
+        keCount++;
+
+        if (q.id <= p.id) continue;
+        var key = pairKey(p, q);
+        if (bondedKeys.has(key)) continue;
+
+        if (dist < cfg.repulsionCoreRadius) {
+          var mag = cfg.repulsionStrength * (1 - dist / cfg.repulsionCoreRadius);
+          var nx = dx / (dist || 1), ny = dy / (dist || 1);
+          p.fx -= mag * nx; p.fy -= mag * ny;
+          q.fx += mag * nx; q.fy += mag * ny;
+        } else {
+          var match = bestCyclicMatch(p.ports, q.ports);
+          var netAffinity = match.score - cfg.mismatchBias;
+          var falloff = 1 - (dist - cfg.repulsionCoreRadius) / (cfg.interactionRadius - cfg.repulsionCoreRadius);
+          var fmag = cfg.affinityStrength * netAffinity * falloff;
+          var fnx = dx / (dist || 1), fny = dy / (dist || 1);
+          p.fx += fmag * fnx; p.fy += fmag * fny;
+          q.fx -= fmag * fnx; q.fy -= fmag * fny;
+
+          if (dist < cfg.connectionDistance && match.score > 0) {
+            attemptBondOrBlast(p, q, dx, dy, dist, match);
+          }
+        }
+      }
+      p.localDensity = localDensity;
+      p.localKE = keCount ? keSum / keCount : 0;
+    }
+
+    for (var ci = connections.length - 1; ci >= 0; ci--) {
+      var conn = connections[ci];
+      var a = conn.a, b = conn.b;
+      var d2 = torDelta(a.x, a.y, b.x, b.y);
+      var dx2 = d2[0], dy2 = d2[1];
+      var dist2 = Math.hypot(dx2, dy2) || 0.0001;
+      var springMag = cfg.springK * (dist2 - cfg.bondRestLength);
+      var nx2 = dx2 / dist2, ny2 = dy2 / dist2;
+      a.fx += springMag * nx2 * 0.5; a.fy += springMag * ny2 * 0.5;
+      b.fx -= springMag * nx2 * 0.5; b.fy -= springMag * ny2 * 0.5;
+
+      var stress = Math.abs(dist2 - cfg.bondRestLength);
+      var localFactor = 0.5 * (a.localDensity + b.localDensity) * 0.01 + 0.5 * (a.localKE + b.localKE);
+      var pBreak = cfg.baseBreakRate * Math.exp(cfg.temperature * 2.2) + cfg.stressBreakCoeff * stress + cfg.pressureBreakCoeff * localFactor;
+      if (Math.random() < pBreak) {
+        breakBond(conn);
+        connections.splice(ci, 1);
+        a.vx -= nx2 * 0.3; a.vy -= ny2 * 0.3;
+        b.vx += nx2 * 0.3; b.vy += ny2 * 0.3;
+      }
+    }
+
+    for (i = 0; i < particles.length; i++) {
+      var pp = particles[i];
+      var noiseScale = Math.sqrt(Math.max(0.0001, cfg.temperature * 0.02 + pp.localKE * 0.01));
+      pp.vx += pp.fx * dt + gaussianRandom() * noiseScale;
+      pp.vy += pp.fy * dt + gaussianRandom() * noiseScale;
+      pp.vx *= cfg.damping; pp.vy *= cfg.damping;
+      pp.x += pp.vx * dt * 20;
+      pp.y += pp.vy * dt * 20;
+      pp.x = ((pp.x % cfg.worldW) + cfg.worldW) % cfg.worldW;
+      pp.y = ((pp.y % cfg.worldH) + cfg.worldH) % cfg.worldH;
+    }
+  }
+
+  // ---- rendering ----
+  function getWrapOffsets(p, margin) {
+    var offsets = [[0, 0]];
+    var nearLeft = p.x < margin, nearRight = p.x > cfg.worldW - margin;
+    var nearTop = p.y < margin, nearBottom = p.y > cfg.worldH - margin;
+    if (nearLeft) offsets.push([cfg.worldW, 0]);
+    if (nearRight) offsets.push([-cfg.worldW, 0]);
+    if (nearTop) offsets.push([0, cfg.worldH]);
+    if (nearBottom) offsets.push([0, -cfg.worldH]);
+    if (nearLeft && nearTop) offsets.push([cfg.worldW, cfg.worldH]);
+    if (nearLeft && nearBottom) offsets.push([cfg.worldW, -cfg.worldH]);
+    if (nearRight && nearTop) offsets.push([-cfg.worldW, cfg.worldH]);
+    if (nearRight && nearBottom) offsets.push([-cfg.worldW, -cfg.worldH]);
+    return offsets;
+  }
+
+  function portPos(p, idx, x, y) {
+    var n = p.ports.length;
+    var theta = (idx / n) * Math.PI * 2 - Math.PI / 2;
+    return [x + (p.radius) * Math.cos(theta), y + (p.radius) * Math.sin(theta)];
+  }
+
+  function drawParticle(p, ox, oy) {
+    var x = p.x + ox, y = p.y + oy;
+    ctx.beginPath();
+    ctx.arc(x, y, p.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#1b212a";
+    ctx.strokeStyle = "#333d49";
+    ctx.lineWidth = 1;
+    ctx.fill(); ctx.stroke();
+
+    for (var i = 0; i < p.ports.length; i++) {
+      var pos = portPos(p, i, x, y);
+      var port = p.ports[i];
+      ctx.beginPath();
+      ctx.arc(pos[0], pos[1], 1.2, 0, Math.PI * 2);
+      if (port.link) {
+        ctx.fillStyle = IDENTITY_COLOR[port.id];
+        ctx.fill();
+      } else {
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = IDENTITY_COLOR[port.id];
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawConnections() {
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = "rgba(223,230,236,0.55)";
+    for (var i = 0; i < connections.length; i++) {
+      var conn = connections[i];
+      var a = conn.a, b = conn.b;
+      var d = torDelta(a.x, a.y, b.x, b.y);
+      var bx = a.x + d[0], by = a.y + d[1];
+      for (var k = 0; k < conn.pairs.length; k++) {
+        var ia = conn.pairs[k][0], ib = conn.pairs[k][1];
+        var pa = portPos(a, ia, a.x, a.y);
+        var pb = portPos(b, ib, bx, by);
+        ctx.beginPath();
+        ctx.moveTo(pa[0], pa[1]);
+        ctx.lineTo(pb[0], pb[1]);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function render() {
+    ctx.fillStyle = "#0b0e12";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawConnections();
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      var offsets = getWrapOffsets(p, 30);
+      for (var j = 0; j < offsets.length; j++) drawParticle(p, offsets[j][0], offsets[j][1]);
+    }
+    document.getElementById("statParticles").textContent = particles.length;
+    document.getElementById("statBonds").textContent = connections.length;
+  }
+
+  // ---- controls ----
+  var running = true;
+  var heatEl = document.getElementById("heat");
+  var selectivityEl = document.getElementById("selectivity");
+  var speedEl = document.getElementById("speed");
+  var countEl = document.getElementById("count");
+  var heatVal = document.getElementById("heatVal");
+  var selectivityVal = document.getElementById("selectivityVal");
+  var speedVal = document.getElementById("speedVal");
+  var countVal = document.getElementById("countVal");
+
+  function syncLabels() {
+    heatVal.textContent = Number(heatEl.value).toFixed(2);
+    selectivityVal.textContent = Number(selectivityEl.value).toFixed(1);
+    speedVal.textContent = Number(speedEl.value).toFixed(1) + "x";
+    countVal.textContent = countEl.value;
+  }
+
+  heatEl.addEventListener("input", function () { cfg.temperature = Number(heatEl.value); syncLabels(); });
+  selectivityEl.addEventListener("input", function () { cfg.mismatchBias = Number(selectivityEl.value); syncLabels(); });
+  speedEl.addEventListener("input", function () { cfg.speed = Number(speedEl.value); syncLabels(); });
+  countEl.addEventListener("input", function () { syncLabels(); });
+  countEl.addEventListener("change", function () { cfg.particleCount = Number(countEl.value); reseed(); });
+
+  document.getElementById("toggleBtn").addEventListener("click", function () {
+    running = !running;
+    this.textContent = running ? "Pause" : "Resume";
+  });
+  document.getElementById("reseedBtn").addEventListener("click", reseed);
+
+  syncLabels();
+  reseed();
+
+  function loop() {
+    if (running) step(0.06 * cfg.speed);
+    render();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

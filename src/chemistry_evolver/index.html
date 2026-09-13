@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System Model — evolutionary selector</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+
+<div id="bar">
+  <span class="title">Spatial-Chemical Evolution</span>
+
+  <span class="ctl">
+    <label for="popSize">pop <span class="val" id="popSizeVal">9</span></label>
+    <input type="range" id="popSize" min="1" max="49" step="1" value="9">
+  </span>
+  <span class="ctl">
+    <label for="gridSize">grid <span class="val" id="gridSizeVal">60</span></label>
+    <input type="range" id="gridSize" min="20" max="200" step="5" value="60">
+  </span>
+  <span class="ctl">
+    <label for="mutRate">mut <span class="val" id="mutRateVal">0.15</span></label>
+    <input type="range" id="mutRate" min="0" max="1" step="0.05" value="0.15">
+  </span>
+  <span class="ctl">
+    <label for="crossRate">xover <span class="val" id="crossRateVal">0.50</span></label>
+    <input type="range" id="crossRate" min="0" max="1" step="0.05" value="0.5">
+  </span>
+  <span class="ctl">
+    <label for="speed">speed <span class="val" id="speedVal">1</span></label>
+    <input type="range" id="speed" min="1" max="20" step="1" value="1">
+  </span>
+
+  <button id="regenBtn">regenerate</button>
+  <button id="evolveBtn">evolve ▶</button>
+  <button id="exportBtn">export winners</button>
+
+  <span class="stat">gen <b id="genNum">0</b></span>
+  <span class="stat">selected <b id="selNum">0</b></span>
+</div>
+
+<div id="pop"></div>
+
+<!-- <script src="sim.js"></script> -->
+<script src="script.js"></script>
+</body>
+</html>

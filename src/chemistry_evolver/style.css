@@ -1,0 +1,186 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  background: #000;
+  /*overflow: hidden;*/
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+}
+#wrap { position: relative; line-height: 0; }
+canvas { display: block; }
+
+#toggleBtn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  background: rgba(15, 15, 15, 0.85);
+  color: #bbb;
+  border: 1px solid #333;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  user-select: none;
+}
+#toggleBtn:hover { background: rgba(35, 35, 35, 0.9); color: #eee; }
+
+#internalsBtn {
+  position: absolute;
+  top: 10px;
+  left: 96px;
+  z-index: 10;
+  background: rgba(15, 15, 15, 0.85);
+  color: #bbb;
+  border: 1px solid #333;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  user-select: none;
+}
+#internalsBtn:hover { background: rgba(35, 35, 35, 0.9); color: #eee; }
+#internalsBtn.active { background: rgba(122, 168, 168, 0.35); color: #eaf6f6; border-color: #7aa8a8; }
+
+#panel {
+  position: absolute;
+  top: 46px;
+  left: 10px;
+  z-index: 9;
+  background: rgba(15, 15, 15, 0.9);
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 14px 16px;
+  width: 200px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 12px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+#panel.hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+#panel .row { margin-bottom: 14px; }
+#panel .row:last-child { margin-bottom: 0; }
+#panel label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  color: #999;
+}
+#panel label .val { color: #ddd; }
+#panel input[type=range] { width: 100%; accent-color: #7aa8a8; }
+#panel button {
+  width: 100%;
+  margin-top: 4px;
+  background: rgba(40, 40, 40, 0.9);
+  color: #ccc;
+  border: 1px solid #333;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+#panel button:hover { background: rgba(60, 60, 60, 0.9); color: #eee; }
+
+#info {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 8;
+  font-size: 11px;
+  color: #888;
+  background: rgba(15, 15, 15, 0.6);
+  padding: 4px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- evolutionary selector (evolve.html) ---- */
+body { flex-direction: column; justify-content: flex-start; }
+#bar {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 15, 15, 0.92);
+  border-bottom: 1px solid #333;
+  color: #ccc;
+  font-size: 12px;
+  flex-wrap: wrap;
+  z-index: 20;
+}
+#bar .title { color: #ddd; font-weight: bold; margin-right: 6px; }
+#bar label { display: flex; align-items: center; gap: 4px; color: #999; }
+#bar input[type=number] {
+  width: 52px; background: #111; color: #ddd; border: 1px solid #333;
+  border-radius: 3px; padding: 3px 5px; font-family: monospace; font-size: 11px;
+}
+#bar button {
+  background: rgba(40, 40, 40, 0.9); color: #ccc; border: 1px solid #333;
+  padding: 6px 10px; font-family: monospace; font-size: 11px; cursor: pointer;
+  border-radius: 3px;
+}
+#bar button:hover { background: rgba(60, 60, 60, 0.9); color: #eee; }
+#bar .stat { color: #888; }
+#bar .stat b { color: #ddd; }
+/* slider control blocks in the bar */
+#bar .ctl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 84px;
+}
+#bar .ctl label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #999;
+}
+#bar .ctl label .val { color: #ddd; }
+#bar .ctl input[type=range] {
+  width: 100%;
+  accent-color: #7aa8a8;
+  cursor: pointer;
+}
+
+#pop {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  align-content: start;
+}
+#pop .panel {
+  position: relative;
+  border: 2px solid #222;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  line-height: 0;
+}
+#pop .panel canvas { width: 100%; height: 100%; display: block; }
+#pop .panel.selected { border-color: #7aa8a8; box-shadow: 0 0 8px rgba(122, 168, 168, 0.6); }
+#pop .panel::after {
+  content: '✓';
+  position: absolute; top: 4px; right: 6px;
+  color: #7aa8a8; font-weight: bold; opacity: 0;
+  text-shadow: 0 0 3px #000;
+}
+#pop .panel.selected::after { opacity: 1; }
+
+/* Styles for subsystem interactions view */
+#visualization { background: #f0f8ff; padding: 20px; border-radius: 8px; }
